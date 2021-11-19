@@ -7,6 +7,8 @@ output: html_notebook
 
 ```{r}
 library(tidyverse)
+library(corrr)
+library(readxl)
 ```
 
 
@@ -141,6 +143,7 @@ districts %>%
   mutate(regionfct = fct_reorder(regionfct, total_enrollment, .desc = FALSE)) %>%
   ggplot(aes(y = regionfct , x = total_enrollment, fill = region)) +
     geom_col() +
+    theme(legend.title = element_blank()) +
     labs(title = "Total Enrollment by Region",
          x = "Total Enrollment",
          y = "Region")
@@ -199,7 +202,11 @@ Create a boxplot showing enrollment rates per region. Does anything stand out?
 ```{r}
 districts %>%
   ggplot(aes(y = region, x = enrollment, fill = region)) +
-    geom_boxplot()
+    geom_boxplot() +
+    theme(legend.title=element_blank()) +
+    labs(title = "Boxplots of Enrollment Rates by Region",
+         x = "Enrollment Rate",
+         y = "Region")
   
 ```
 
@@ -215,8 +222,14 @@ Create a boxplot showing graduation rates per region. Does anything stand out?
 districts %>%
   group_by(region) %>%
   ggplot(aes(y = region, x = grad, fill = region)) +
-    geom_boxplot()
+    geom_boxplot() +
+    theme(legend.title=element_blank()) +
+    labs(title = "Boxplots of Graduation Rates by Region",
+         x = "Graduation Rate",
+         y = "Region")
+    
 ```
+
 
 ### Answer 15
 
@@ -229,19 +242,34 @@ Find the weighted average of graduation rates by region using enrollment as weig
 ```{r}
 districts %>%
   group_by(region) %>%
-  summarize(region_weighted_grad = weighted.mean(grad, coalesce(enrollment, 0), na.rm = TRUE)) %>%
+  summarize(region_weighted_grad = weighted.mean(grad, coalesce(enrollment, 0), na.rm = TRUE), region_median_grad = median(grad, na.rm = TRUE)) %>%
   arrange(desc(region_weighted_grad))
 ```
+```{r}
+districts %>%
+  filter(region == "Southwest/Memphis") %>%
+  slice_min(grad, n = 3) %>%
+  select(system_name, enrollment, grad)
+```
+
+```{r}
+districts %>%
+  filter(region == "Southwest/Memphis") %>%
+  transmute(system_name, enrollment, enrollment_proportion = enrollment/sum(enrollment, na.rm = TRUE), grad) %>%
+  arrange(desc(enrollment_proportion))
+```
+
+
 ### Answer 16
-*We'll come back to this.*
+Southwest/Memphis has a median graduation rate comparable to other districts; however, it's weighted graduation rate is significantly lower than all other districts. This is partially because of The Achievement School District's low graduation rate; however, it is primarily because Shelby County has a graduation rate of 72.1 (pretty low) and has an enrollment of 108,936, which is about 9 times as high as the next highest district in the region.
 
 ## Problem 17
 
-For many districts, values for alg_2 are lower than for alg_1. Create a histogram showing the distribution of differences (alg_1 - alg_2). Which school had the largest drop from alg_1 to alg_2? For what percentage of schools is it true that alg_2 is larger than alg_1? Is there a similar dropoff for eng_2 and eng_3?
+For many districts, values for alg_2 are lower than for alg_1. Create a histogram showing the distribution of differences (alg_1 - alg_2).
 
 ```{r}
 districts_algebra <- districts %>%
-  summarize(alg_diff = alg_1 - alg_2)
+  mutate(alg_diff = alg_1 - alg_2)
   
 ggplot(districts_algebra, aes(x = alg_diff, fill = alg_diff < 0)) +
   geom_histogram() +
@@ -250,59 +278,125 @@ ggplot(districts_algebra, aes(x = alg_diff, fill = alg_diff < 0)) +
                       labels = c("Scores Drop", "Scores Rise"), 
                       guide = guide_legend(reverse=TRUE)) +
   labs(title = "Histogram of Differences between Algebra 1 and Algebra 2",
-       x = "Difference between Algebra 1 and Algebra 2 \n (Positive values represent a drop from Algebra 1 to Algebra 2)")
+       x = "Difference between Algebra 1 and Algebra 2")
     
 ```
 
+Which school had the largest drop from alg_1 to alg_2?
+
+
+```{r}
+districts_algebra %>%
+  select(system_name, region, alg_diff) %>%
+  arrange(desc(alg_diff))
+```
+
+For what percentage of schools is it true that alg_2 is larger than alg_1? Is there a similar dropoff for eng_2 and eng_3?
+
+
+```{r}
+districts_algebra %>%
+  mutate(eng23_diff = eng_2 - eng_3) %>%
+  summarize(proportion_alg_drop = mean(alg_diff < 0, na.rm = TRUE),
+            proportion_eng23_drop = mean(eng23_diff < 0, na.rm = TRUE))
+```
+
+### Answers 17
+Pickett County had the highest proportion of scores drop from alg_1 to alg_2 (52.6%). Interestingly, the three highest are all in the Upper Cumberland region. In only about 15.4% of districts do alg_2 scores increase from alg_1. The case with eng_2 to eng_3 is even more dramatic, with only 0.8% of districts seeing an improvement in scores.
 
 18. You may have noticed that a lot of rows are missing values. Which district has the largest number of missing values? What do you notice about schools that have a lot of missing values?
 
 ```{r}
-
+districts %>%
+  mutate(count_nas = rowSums(is.na(.))) %>%
+  arrange(desc(count_nas))
 ```
+### Answer 18
+Schools with many missing values tend to be missing the same values: testing data. Therefore, with the exception of the district with the highest number of missing values (West TN School for the Deaf, with 15), the districts with the most missing values all have 10 NAs. It's also worth noting that 11 of the 13 districts with the most missing values have "City" in their name. Do cities report testing data elsewhere?
 
 
 19. Find the correlation between graduation rate and all other variables. Create a horizontal bar chart showing these correlations. Make sure that your plot is ordered by correlation values. What do you notice from these correlations?
 
-```{r}
-
-```
-
-
-20. Create a scatterplot for grad vs. suspended. Does what you see make sense given your answer from the previous part?
 
 ```{r}
-
+(grad_corrs <- districts %>%
+  select(where(is.numeric)) %>%
+  correlate(use = "pairwise.complete.obs") %>%
+  select(term, grad)) %>%
+  arrange(grad)
 ```
 
+```{r}
+ggplot(grad_corrs%>%drop_na(), aes(y = reorder(term, grad), x = grad, fill = grad)) + 
+  geom_col() +
+  #geom_text(aes(label=grad), position=position_dodge(width=0.9)) +
+  theme(legend.position = 'none') +
+  labs(title = "Correlations with Graduation Rate",
+       x = "Pearson Correlation",
+       y = "Variable")
+```
+### Answer 19
+* Positive Correlations: eng_3 has the strongest correlation with graduation rates, while the other eng classes are not as strongly correlated. Earlier, we saw that a drop in scores from eng_2 to eng_3 standard. This course, or its content, overall seems like a major hurdle to graduation in TN. The next four strongest correlations are all STEM.
+
+* Not correlated: Composite ACT, largely used as a predictor for college readiness, does not appear to be a predictor of graduation rates. Expenditures has less correlation than I would have expected.
+
+* Negative Correlations: Expelled, suspended, and dropout all make sense as strong correlations. Of greater importance are blackness, hispanic, and enrollment. Also, these might correlate with each other.
+
+## Problem 20
+
+Create a scatterplot for grad vs. suspended. Does what you see make sense given your answer from the previous part?
+
+```{r}
+ggplot(districts, aes(x = suspended, y = grad)) +
+  geom_point(aes(color = region)) +
+  theme(legend.title=element_blank()) +
+  labs(title = "Graduation Rate vs Suspension Rate Colored by Region",
+       x = "Suspension Rate",
+       y = "Graduation Rate")
+```
+
+### Answer 20
+Sure enough, as suspension rate increases, graduation rate tends to decrease (i.e. negative correlation).
 
 21. Create a linear regression model using lm with target variable grad and predictor variable suspended. What R^2 value does this model have? What is the interpretation of this number?
 
 ```{r}
-
+lm_grad_susp = lm(grad~suspended, data = districts) #Create the linear regression
+summary(lm_grad_susp)
+summary(lm_grad_susp)$r.squared
 ```
-
+### Answer 21
+The R^2 value of this model is 0.079502, which means that the model explains about 8% of the variability in the data.
 
 22. Add the regression line to your scatterplot using geom_smooth with method='lm'. How do you feel about the regression line after seeing it plotted on the scatterplot?
 
 ```{r}
-
+ggplot(districts, aes(x = suspended, y = grad)) +
+  geom_point(aes(color = region)) +
+  geom_smooth(method = 'lm') +
+  theme(legend.title=element_blank()) +
+  labs(title = "Graduation Rate vs Suspension Rate Colored by Region",
+       x = "Suspension Rate",
+       y = "Graduation Rate")
 ```
-
+### Answer 22
+Given the R^2 found in Problem 21, the line looks useful for demonstrating the decreasing trend but not for predicting specific graduation rates.
 
 Continued Exploration and Practice
 
 23. Read in the school-level testing data for 2014, available here. You might find the readxl library useful for this task. If you use this library, be sure to look at the na argument for the read_excel function.
 
 ```{r}
-
+(schools <- read_excel('../data/data_2014_school_base.xlsx', na = "*"))
 ```
 
 
 24. How many schools have at least 20 percent of students below bsc for Algebra I? Which districts do these schools belong to?
 
 ```{r}
-
+schools %>%
+  filter((subject == "Algebra I") & (subgroup == "All Students") & (pct_below_bsc >= 0.2)) %>%
+  select(school_name, subject, subgroup, pct_below_bsc)
 ```
 
 
