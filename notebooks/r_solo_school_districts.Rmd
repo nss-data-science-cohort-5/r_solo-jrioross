@@ -394,32 +394,105 @@ Continued Exploration and Practice
 24. How many schools have at least 20 percent of students below bsc for Algebra I? Which districts do these schools belong to?
 
 ```{r}
-schools %>%
-  filter((subject == "Algebra I") & (subgroup == "All Students") & (pct_below_bsc >= 0.2)) %>%
-  select(school_name, subject, subgroup, pct_below_bsc)
+bad_alg_schools <- schools %>%
+  mutate(pct_below_bsc = as.integer(pct_below_bsc)) %>%
+  filter((subject == "Algebra I") & (subgroup == "All Students") & (grade == "All Grades") & (pct_below_bsc >= 20))
+
+bad_alg_schools %>%
+  count()
 ```
 
+```{r}
+bad_alg_schools %>%
+  distinct(system_name)
+```
+
+
+### Answer 24
+There are 71 schools with at least 20 percent of students below bsc for Algebra I. These are contained in 30 distinct school districts, displayed above.
 
 25. How many schools have at least 20 percent of students below bsc for both Algebra I and English I?
 
 ```{r}
-
+schools %>%
+  mutate(pct_below_bsc = as.integer(pct_below_bsc)) %>%
+  filter((subject %in% c("Algebra I", "English I"))
+         & (subgroup == "All Students")
+         & (grade == "All Grades")
+         ) %>%
+  select(system_name, school_name, subject, pct_below_bsc) %>% 
+  pivot_wider(names_from = subject, values_from = pct_below_bsc) %>%
+  filter(!is.na(`Algebra I`) & !is.na(`English I`)) %>%
+  summarize(count_both_min_20 = sum(`Algebra I`>=20 & `English I`>=20),
+            mean_both_min_20 = mean(`Algebra I`>=20 & `English I`>=20))
 ```
 
+```{r}
+schools %>%
+  mutate(pct_below_bsc = as.integer(pct_below_bsc)) %>%
+  filter((subject %in% c("Algebra I", "English I"))
+         & (subgroup == "All Students")
+         & (grade == "All Grades")
+         ) %>%
+  select(system_name, school_name, subject, pct_below_bsc) %>% 
+  pivot_wider(names_from = subject, values_from = pct_below_bsc) %>%
+  filter(!is.na(`Algebra I`) & !is.na(`English I`) & `Algebra I`>=20 & `English I`>=20)
+```
+
+### Answer 25
+Four schools have at least 20 percent of students below bsc for both Algebra I and English I:
+* Jellico High School
+* Stratford STEM Magnet High School
+* Lake County High School
+* Northside High School
 
 26. Which grade has the highest pct_adv for Algebra I? Plot the average pct_adv per grade level as a bar chart. Make sure that the bars are ordered by grade level.
 
 ```{r}
+mean_pct_adv_by_grade <- schools %>%
+  mutate(pct_adv = as.numeric(pct_adv)) %>%
+  filter(subject == 'Algebra I' & subgroup == "All Students" & !(grade %in% c("Missing Grade", "All Grades"))) %>%
+  group_by(grade) %>%
+  summarize(mean_pct_adv = mean(pct_adv, na.rm = TRUE)) 
 
+mean_pct_adv_by_grade%>%
+  slice_max(mean_pct_adv, n = 1)
 ```
 
+
+```{r}
+mean_pct_adv_by_grade %>%
+  mutate(grade = factor(grade, levels = c('6','7', '8', '9', '10', '11', '12'))) %>%
+  ggplot(aes(x = grade, y = mean_pct_adv, fill = grade)) +
+    geom_col() +
+    labs(title = "Maximum Pct Adv by Grade",
+         x = "Grade",
+         y = "Maximum Pct Adv") +
+    scale_fill_discrete(name = "Grade")
+```
+
+### Answer 26
+8th grade has the highest mean pct_adv for Algebra I with about 35.52%.
 
 27. Find the correlation between pct_adv for Algebra I and pct_adv for Algebra II by school. Create a scatterplot showing Algebra II scores vs. Algebra I scores by school.
 
 ```{r}
-
+alg12_by_school <- schools %>%
+  mutate(pct_adv = as.numeric(pct_adv)) %>%
+  filter(subject %in% c('Algebra I', 'Algebra II') & subgroup == "All Students" & grade == "All Grades") %>%
+  select(system_name, school_name, subject, pct_adv) %>%
+  pivot_wider(names_from = subject, values_from = pct_adv)
+  
+alg12_by_school %>%
+  select(`Algebra I`, `Algebra II`) %>%
+  cor(use = "pairwise.complete.obs")
 ```
-
+```{r}
+ggplot(alg12_by_school, aes(x = `Algebra I`, y = `Algebra II`)) +
+  geom_point()
+```
+### Answer 27
+The correlation between pct_adv of Algebra 1 and Algebra 2 is 0.602 (pretty strong, given the number of points).
 
 28. Find all schools in Rutherford County that have "High School" in their name. For these schools, create a chart (your choice) showing the differences in pct_below_bsc, pct_bsc, pct_prof, and pct_adv for Algebra I when looking across all subgroups and grades.
 
