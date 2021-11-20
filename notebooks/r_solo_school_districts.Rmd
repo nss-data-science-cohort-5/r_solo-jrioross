@@ -497,30 +497,121 @@ The correlation between pct_adv of Algebra 1 and Algebra 2 is 0.602 (pretty stro
 28. Find all schools in Rutherford County that have "High School" in their name. For these schools, create a chart (your choice) showing the differences in pct_below_bsc, pct_bsc, pct_prof, and pct_adv for Algebra I when looking across all subgroups and grades.
 
 ```{r}
-
+schools %>%
+  filter(system_name == "Rutherford County" & 
+         grepl("High School", school_name) & 
+         subject == "Algebra I" & 
+         grade == "All Grades" & 
+         subgroup == "All Students") %>%
+  select(system_name, school_name, pct_below_bsc, pct_bsc, pct_prof, pct_adv) %>%
+  pivot_longer(names_to = "category", values_to = "percentage", cols = c(pct_below_bsc, pct_bsc, pct_prof, pct_adv)) %>%
+  mutate(percentage = as.numeric(percentage)) %>%
+  ggplot(aes(y = school_name, x = percentage, fill = school_name)) +
+    geom_col() +
+    facet_wrap(~category) +
+    theme(legend.position = "none") +
+    labs(title = "Rutherford County High Schools across Four Categories",
+         y = "School Name",
+         x = "Percentage")
+  
 ```
 
 
 29. I claim that smaller schools do a better job preparing students for Algebra I standardized tests. Find the average number of valid tests (a proxy for the school size) for schools where the pct_prof_adv for Algebra I is greater than 95. Compare this to the average number of valid tests for all schools. In light of this result, how does my claim look?
 
 ```{r}
+schools %>%
+  filter(subject == "Algebra I" & 
+         grade == "All Grades" & 
+         subgroup == "All Students" 
+        ) %>%
+  mutate(pct_prof_adv_over_95 = as.numeric(pct_prof_adv) > 95) %>%
+  summarize(mean_valid_tests = mean(valid_tests, rm.na = TRUE),
+            count_valid_tests = n(),
+            mean_valid_tests_high_scores = weighted.mean(valid_tests, coalesce(pct_prof_adv_over_95,0), na.rm = TRUE),
+            count_valid_tests_high_scores = sum(pct_prof_adv_over_95, na.rm = TRUE)
+            )
+```
+```{r}
+all_valid_tests <- schools %>%
+  filter(subject == "Algebra I" & 
+         grade == "All Grades" & 
+         subgroup == "All Students" 
+        ) %>%
+  select(valid_tests)
 
+high_valid_tests <- schools %>%
+  filter(subject == "Algebra I" & 
+         grade == "All Grades" & 
+         subgroup == "All Students" &
+         as.numeric(pct_prof_adv) > 95
+        ) %>%
+  select(valid_tests)
+
+t.test(all_valid_tests, high_valid_tests)
 ```
 
+### Answer 29
+Your claim looks pretty good: Schools with an Algebra I pct_adv over 95 tend to have significantly lower valid tests, i.e., smaller schools. That said, is the direction of implication going in the right direction here? That is, are we saying smaller school suggests better preparation or that better preparation suggests smaller school? 
 
 30. I also claim that smaller schools do a worse job preparing students for Algebra I standardized tests. Find the average number of valid tests (a proxy for the school size) for schools where the pct_prof_adv for Algebra I is less than 25. Compare this to the average number of valid tests for all schools. In light of this result, how does my claim look now?
 
 ```{r}
-
+schools %>%
+  filter(subject == "Algebra I" & 
+         grade == "All Grades" & 
+         subgroup == "All Students" 
+        ) %>%
+  mutate(pct_prof_adv_under_25 = as.numeric(pct_prof_adv) < 25) %>%
+  summarize(mean_valid_tests = mean(valid_tests, rm.na = TRUE),
+            count_valid_tests = n(),
+            mean_valid_tests_low_scores = weighted.mean(valid_tests, coalesce(pct_prof_adv_under_25,0), na.rm = TRUE),
+            count_valid_tests_low_scores = sum(pct_prof_adv_under_25, na.rm = TRUE)
+            )
 ```
 
+```{r}
+all_valid_tests <- schools %>%
+  filter(subject == "Algebra I" & 
+         grade == "All Grades" & 
+         subgroup == "All Students" 
+        ) %>%
+  select(valid_tests)
+
+low_valid_tests <- schools %>%
+  filter(subject == "Algebra I" & 
+         grade == "All Grades" & 
+         subgroup == "All Students" &
+         as.numeric(pct_prof_adv) < 25
+        ) %>%
+  select(valid_tests)
+
+t.test(all_valid_tests, low_valid_tests)
+```
+
+
+### Answer 30
+Right; so here we see the if vs. only if thing. We're seeing that both lower and higher scores tend to be associated with smaller-than-average schools. Both of your statements are overly general, and they should probably be finessed to something more like "Higher Algebra I scores tend to occur in smaller schools," and "Lower Algebra I scores tend to be associated with smaller schools." Note this might just mean that smaller schools tend to be high variation and not that their mean outcomes significantly differ from the overall mean. Perhaps to more directly check your statements, we'd want to see whether the pct_prof_adv of Algebra I for schools with low valid_test counts (we'd have to pick a threshold for "low") tends to be significantly different from the overall mean scores.
 
 31. Create a scatterplot showing pct_prov_adv vs. valid_tests. Can you use this to explain the result for numbers 26 and 27?
 
 ```{r}
-
+schools %>%
+  inner_join(districts) %>%
+  filter(subject == "Algebra I" & 
+         grade == "All Grades" & 
+         subgroup == "All Students" 
+        ) %>%
+ggplot(aes(x = valid_tests, y = pct_prof_adv, color = region)) +
+  geom_point() +
+  theme(legend.title = element_blank()) +
+  labs(title = "Percent Prof Adv vs Valid Tests (School Size) Colored by Region",
+       x = "Valid Tests (School Size)",
+       y = "Percent Prof Adv") 
+      
 ```
-
+### Answer 31
+Values above 95 or below 25 are almost exclusively paired with small school sizes, while increased school sizes tend to pair with moderate Percent Prof Adv. So, yeah, that tracks.
 
 If you finish all of the above questions, continue to explore the two datasets and see what else interesting you can find.
 
