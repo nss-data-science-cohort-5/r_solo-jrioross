@@ -9,6 +9,7 @@ output: html_notebook
 library(tidyverse)
 library(corrr)
 library(readxl)
+library(plotly)
 ```
 
 
@@ -371,13 +372,15 @@ The R^2 value of this model is 0.079502, which means that the model explains abo
 22. Add the regression line to your scatterplot using geom_smooth with method='lm'. How do you feel about the regression line after seeing it plotted on the scatterplot?
 
 ```{r}
-ggplot(districts, aes(x = suspended, y = grad)) +
+plot22 <- ggplot(districts, aes(x = suspended, y = grad)) +
   geom_point(aes(color = region)) +
   geom_smooth(method = 'lm') +
   theme(legend.title=element_blank()) +
   labs(title = "Graduation Rate vs Suspension Rate Colored by Region",
        x = "Suspension Rate",
        y = "Graduation Rate")
+
+ggplotly(plot22)
 ```
 ### Answer 22
 Given the R^2 found in Problem 21, the line looks useful for demonstrating the decreasing trend but not for predicting specific graduation rates.
@@ -497,7 +500,7 @@ The correlation between pct_adv of Algebra 1 and Algebra 2 is 0.602 (pretty stro
 28. Find all schools in Rutherford County that have "High School" in their name. For these schools, create a chart (your choice) showing the differences in pct_below_bsc, pct_bsc, pct_prof, and pct_adv for Algebra I when looking across all subgroups and grades.
 
 ```{r}
-schools %>%
+plot28 <- schools %>%
   filter(system_name == "Rutherford County" & 
          grepl("High School", school_name) & 
          subject == "Algebra I" & 
@@ -513,7 +516,29 @@ schools %>%
     labs(title = "Rutherford County High Schools across Four Categories",
          y = "School Name",
          x = "Percentage")
-  
+
+ggplotly(plot28)
+```
+
+```{r}
+#This one was inspired by Neda, who helped me realize that the four categories sum to 100% for each school. (yeesh)
+plot28b <- schools %>%
+  filter(system_name == "Rutherford County" & 
+         grepl("High School", school_name) & 
+         subject == "Algebra I" & 
+         grade == "All Grades" & 
+         subgroup == "All Students") %>%
+  select(system_name, school_name, pct_below_bsc, pct_bsc, pct_prof, pct_adv) %>%
+  pivot_longer(names_to = "category", values_to = "percentage", cols = c(pct_below_bsc, pct_bsc, pct_prof, pct_adv)) %>%
+  mutate(percentage = as.numeric(percentage), category = factor(category, levels = c("pct_below_bsc", "pct_bsc", "pct_prof", "pct_adv"))) %>%
+  ggplot(aes(y = school_name, x = percentage, fill = category)) +
+    geom_col(position = position_stack(reverse = TRUE)) +
+    scale_fill_discrete(name = "Category") +
+    labs(title = "Rutherford County High Schools across Four Categories",
+         y = "School Name",
+         x = "Percentage")
+
+ggplotly(plot28b)
 ```
 
 
@@ -596,7 +621,7 @@ Right; so here we see the if vs. only if thing. We're seeing that both lower and
 31. Create a scatterplot showing pct_prov_adv vs. valid_tests. Can you use this to explain the result for numbers 26 and 27?
 
 ```{r}
-schools %>%
+plot_31 <- schools %>%
   inner_join(districts) %>%
   filter(subject == "Algebra I" & 
          grade == "All Grades" & 
@@ -608,7 +633,8 @@ ggplot(aes(x = valid_tests, y = pct_prof_adv, color = region)) +
   labs(title = "Percent Prof Adv vs Valid Tests (School Size) Colored by Region",
        x = "Valid Tests (School Size)",
        y = "Percent Prof Adv") 
-      
+
+ggplotly(plot_31)
 ```
 ### Answer 31
 Values above 95 or below 25 are almost exclusively paired with small school sizes, while increased school sizes tend to pair with moderate Percent Prof Adv. So, yeah, that tracks.
