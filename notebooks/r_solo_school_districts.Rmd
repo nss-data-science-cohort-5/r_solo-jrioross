@@ -42,17 +42,19 @@ How many districts have a proficiency rate of at least 80% for both alg_1 and en
 
 ```{r}
 districts %>%
-  filter(alg_1 >= 80 & eng_1 >= 80)
+  filter(alg_1 >= 80 & eng_1 >= 80) %>%
+  select(system_name, alg_1, eng_1)
 ```
 ### Answer 3
 
 13 school districts
 
-4. How many districts have a proviciency rate less than 50% for either alg_1 or eng_1?
+4. How many districts have a proficiency rate less than 50% for either alg_1 or eng_1?
 
 ```{r}
 districts %>%
-  filter(alg_1 < 50 | eng_1 < 50)
+  filter(alg_1 < 50 | eng_1 < 50) %>%
+  select(system_name, alg_1, eng_1)
 ```
 ### Answer 4
 
@@ -102,8 +104,8 @@ Create a histogram showing the distribution of graduation rates. What can you sa
 districts %>%
   ggplot(aes(x = grad)) +
     geom_histogram() +
-    ggtitle("Distribution of Graduation Rates") +
-    xlab("Graduation Rate")
+    labs(title = "Distribution of Graduation Rates",
+         x = "Graduation Rate")
 ```
 ```{r}
 districts %>%
@@ -116,7 +118,7 @@ districts %>%
 
 
 ### Answer 8
-The distribution is heavily left skewed, with a few low outliers.
+The distribution is pretty normal with a few low outliers.
 
 ## Problem 9
 
